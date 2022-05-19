@@ -5,7 +5,7 @@ module.exports = function(port, controller) {
 
   const app = express()
 
-  app.get('/bitcoin/difficulty', (req, res) => {
+  app.get('/api/bitcoin/difficulty', (req, res) => {
     return res.send(controller.getDifficulty())
   })
   
