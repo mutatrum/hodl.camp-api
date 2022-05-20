@@ -9,6 +9,10 @@ module.exports = function(port, controller) {
     return res.send(controller.getDifficulty())
   })
   
+  app.get('/api/bitcoin/halvings', (req, res) => {
+    return res.send(controller.getHalvings())
+  })
+  
   app.listen(port, () =>
     logger.log(`Listening on port ${port}`),
   )

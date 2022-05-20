@@ -1,9 +1,10 @@
 const logger = require('./logger')
 
-let difficulty = {
-  current: 0,
-  max: 0
-}
+const Difficulty = require('./difficulty')
+let difficulty
+
+const Halvings = require('./halvings')
+let halvings
 
 module.exports = function(bitcoin_rpc) {
 
@@ -11,26 +12,20 @@ module.exports = function(bitcoin_rpc) {
     const networkInfo = await bitcoin_rpc.getNetworkInfo()
     logger.log(`connected to Bitcoin Core ${networkInfo.subversion} on ${bitcoin_rpc.getURI()}`)
 
-    const bestBlockHash = await bitcoin_rpc.getBestBlockHash()
-    const bestBlockHeader = await bitcoin_rpc.getBlockHeader(bestBlockHash)
-  
-    for (var height = 0; height < bestBlockHeader.height; height += 2016) {
-      const blockHash = await bitcoin_rpc.getBlockHash(height)
-      const blockHeader = await bitcoin_rpc.getBlockHeader(blockHash)
-      this.onBlockHeader(blockHeader)
-    }
+    difficulty = new Difficulty(bitcoin_rpc)
+    await difficulty.init()
 
-    this.onBlockHeader(bestBlockHeader)
-
-    logger.log(`Block height: ${bestBlockHeader.height}`)
-    logger.log(`Difficulty: ${difficulty.current} max: ${difficulty.max}`)
+    halvings = new Halvings(bitcoin_rpc)
+    await halvings.init()
   }
 
-  this.onBlockHeader = (blockHeader) => {
-    // logger.log(`Block ${blockHeader.height} difficulty ${blockHeader.difficulty}`)
-    difficulty.current = blockHeader.difficulty
-    difficulty.max = Math.max(difficulty.max, blockHeader.difficulty)
+
+  this.onBlockHeader = async (blockHeader) => {
+    await difficulty.onBlockHeader(blockHeader)
+    await halvings.onBlockHeader(blockHeader)
   }
 
-  this.getDifficulty = () => difficulty
+  this.getDifficulty = () => difficulty.getDifficulty()
+
+  this.getHalvings = () => halvings.getHalvings()
 }
