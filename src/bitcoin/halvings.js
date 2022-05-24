@@ -1,4 +1,4 @@
-const logger = require('./logger')
+const logger = require('../logger')
 
 module.exports = function(bitcoin_rpc) {
 
@@ -20,6 +20,7 @@ module.exports = function(bitcoin_rpc) {
     nextHalving = await getNextHalvingDate(bestBlockHeader)
 
     logger.log(`Halvings: ${halvings}`)
+    logger.log(`Next halving: ${nextHalving}`)
   }
 
   this.onBlockHeader = async (blockHeader) => {
@@ -27,7 +28,12 @@ module.exports = function(bitcoin_rpc) {
       halvings.push(formatDate(new Date(blockHeader.mediantime * 1000)))
     }
 
-    nextHalving = await getNextHalvingDate(blockHeader)
+    var next = await getNextHalvingDate(blockHeader)
+
+    if (nextHalving != next) {
+      logger.log(`Next halving: ${nextHalving}`)
+    }
+    nextHalving = next;
   }
 
   this.getHalvings = () => [...halvings, nextHalving]
