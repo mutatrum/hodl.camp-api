@@ -1,4 +1,5 @@
 const logger = require('../logger')
+const { formatDate } = require('../formatDate')
 
 module.exports = function(bitcoin_rpc) {
 
@@ -47,13 +48,5 @@ module.exports = function(bitcoin_rpc) {
     var previousBlockHeader = await bitcoin_rpc.getBlockHeader(previousBlockHash)
     var timeDelta = blockHeader.mediantime - previousBlockHeader.mediantime;
     return formatDate(new Date((blockHeader.mediantime + timeDelta) * 1000))
-  }
-
-  function formatDate(date) {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-  }
-
-  function pad(string) {
-    return string.toString().padStart(2, '0');
   }
 }

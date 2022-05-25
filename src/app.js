@@ -16,7 +16,11 @@ module.exports = function(port, controller) {
   })
 
   app.get('/api/bitcoin/prices', (req, res) => {
-    return res.send(controller.getPrices())
+    return res.send(controller.getBitcoinPrices(req.query.since))
+  })
+
+  app.get('/api/gold/prices', (req, res) => {
+    return res.send(controller.getGoldPrices(req.query.since))
   })
 
   app.listen(port, () =>

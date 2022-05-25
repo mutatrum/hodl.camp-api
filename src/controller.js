@@ -6,8 +6,11 @@ let difficulty
 const Halvings = require('./bitcoin/halvings')
 let halvings
 
-const Prices = require('./bitcoin/prices')
-let prices
+const BitcoinPrices = require('./bitcoin/prices')
+let bitcoinPrices
+
+const GoldPrices = require('./gold/prices')
+let goldPrices
 
 module.exports = function(bitcoin_rpc) {
 
@@ -21,18 +24,25 @@ module.exports = function(bitcoin_rpc) {
     halvings = new Halvings(bitcoin_rpc)
     await halvings.init()
 
-    prices = new Prices()
-    await prices.init()
+    bitcoinPrices = new BitcoinPrices()
+    bitcoinPrices.init()
+
+    goldPrices = new GoldPrices()
+    goldPrices.init()
   }
 
-  this.onBlockHeader = async (blockHeader) => {
-    await difficulty.onBlockHeader(blockHeader)
-    await halvings.onBlockHeader(blockHeader)
+  this.onBlockHeader = (blockHeader) => {
+    logger.log(`Block ${blockHeader.height}`)
+
+    difficulty.onBlockHeader(blockHeader)
+    halvings.onBlockHeader(blockHeader)
   }
 
   this.getDifficulty = () => difficulty.getDifficulty()
 
   this.getHalvings = () => halvings.getHalvings()
 
-  this.getPrices = () => prices.getPrices()
+  this.getBitcoinPrices = (since) => bitcoinPrices.getPrices(since)
+
+  this.getGoldPrices = (since) => goldPrices.getPrices(since)
 }

@@ -2,7 +2,7 @@ const logger = require('../logger')
 
 module.exports = function(bitcoin_rpc) {
 
-  const difficulty = {
+  let difficulty = {
     current: 0,
     max: 0
   }
@@ -20,7 +20,7 @@ module.exports = function(bitcoin_rpc) {
     logger.log(`Difficulty ${difficulty.current} max ${difficulty.max}`)
   }
 
-  this.onBlockHeader = async (blockHeader) => {
+  this.onBlockHeader = (blockHeader) => {
     if (difficulty.current != blockHeader.difficulty) {
       logger.log(`Difficulty ${blockHeader.difficulty} height ${blockHeader.height}`)
     }
@@ -28,8 +28,10 @@ module.exports = function(bitcoin_rpc) {
   }
 
   function newDifficulty(newDifficulty) {
-    difficulty.current = newDifficulty
-    difficulty.max = Math.max(difficulty.max, newDifficulty)
+    difficulty = {
+      current: newDifficulty,
+      max: Math.max(difficulty.max, newDifficulty)
+    }
   }
 
   this.getDifficulty = () => difficulty
