@@ -6,7 +6,7 @@ module.exports = function(bitcoin_rpc) {
   const QUARTER = 210000 / 4
 
   const halvings = []
-  let nextHalving;
+  let nextHalving
   
   this.init = async () => {
     const bestBlockHash = await bitcoin_rpc.getBestBlockHash()

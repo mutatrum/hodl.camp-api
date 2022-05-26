@@ -12,6 +12,9 @@ let bitcoinPrices
 const GoldPrices = require('./gold/prices')
 let goldPrices
 
+const Inflation = require('./dollar/inflation')
+let inflation
+
 module.exports = function(bitcoin_rpc) {
 
   this.init = async () => {
@@ -29,6 +32,9 @@ module.exports = function(bitcoin_rpc) {
 
     goldPrices = new GoldPrices()
     goldPrices.init()
+
+    inflation = new Inflation()
+    inflation.init()
   }
 
   this.onBlockHeader = (blockHeader) => {
@@ -45,4 +51,6 @@ module.exports = function(bitcoin_rpc) {
   this.getBitcoinPrices = (since) => bitcoinPrices.getPrices(since)
 
   this.getGoldPrices = (since) => goldPrices.getPrices(since)
+
+  this.getInflation = (since) => inflation.getInflation(since)
 }

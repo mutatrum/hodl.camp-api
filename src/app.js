@@ -23,6 +23,10 @@ module.exports = function(port, controller) {
     return res.send(controller.getGoldPrices(req.query.since))
   })
 
+  app.get('/api/dollar/inflation', (req, res) => {
+    return res.send(controller.getInflation(req.query.since))
+  })
+
   app.listen(port, () =>
     logger.log(`Listening on port ${port}`),
   )
