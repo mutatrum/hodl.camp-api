@@ -41,6 +41,10 @@ module.exports = function() {
   }
 
   function process(body) {
+    if (!body.dataset_data.hasOwnProperty('column_names')) {
+      logger.log(`Error: ${body}`)
+      return
+    }
     const dateColumn = body.dataset_data.column_names.indexOf('Date')
     const priceColumn = body.dataset_data.column_names.indexOf('USD (AM)')
 
