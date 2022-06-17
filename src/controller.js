@@ -9,8 +9,8 @@ let halvings
 const BitcoinPrices = require('./bitcoin/prices')
 let bitcoinPrices
 
-const GoldPrices = require('./gold/prices')
-let goldPrices
+// const GoldPrices = require('./gold/prices')
+// let goldPrices
 
 const Inflation = require('./dollar/inflation')
 let inflation
@@ -30,8 +30,8 @@ module.exports = function(bitcoin_rpc) {
     bitcoinPrices = new BitcoinPrices()
     bitcoinPrices.init()
 
-    goldPrices = new GoldPrices()
-    goldPrices.init()
+    // goldPrices = new GoldPrices()
+    // goldPrices.init()
 
     inflation = new Inflation()
     inflation.init()
@@ -50,7 +50,7 @@ module.exports = function(bitcoin_rpc) {
 
   this.getBitcoinPrices = (since) => bitcoinPrices.getPrices(since)
 
-  this.getGoldPrices = (since) => goldPrices.getPrices(since)
+  // this.getGoldPrices = (since) => goldPrices.getPrices(since)
 
   this.getInflation = (since) => inflation.getInflation(since)
 }
