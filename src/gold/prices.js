@@ -62,6 +62,9 @@ module.exports = function() {
         currentPrice = body.dataset_data.data[i][priceColumn];
         i--
       }
+      if (currentPrice == undefined) {
+        currentPrice = prices[prices.length - 1]
+      }
       prices.push(currentPrice)
       date.setDate(date.getDate() + 1)
     }
