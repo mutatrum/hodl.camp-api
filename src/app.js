@@ -27,7 +27,7 @@ module.exports = function(port, controller) {
     return res.send(controller.getInflation(req.query.since))
   })
 
-  app.get('/api/img/sats_per_:fiat/:sats', (req, res) => {
+  app.get('/api/img/sats_per_:fiat/:sats.png', (req, res) => {
     if (req.headers['if-none-match']) return res.sendStatus(304)
 
     let result = controller.getSatsPerDollar(req.params.fiat, req.params.sats)
