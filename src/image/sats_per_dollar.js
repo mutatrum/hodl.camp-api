@@ -11,6 +11,10 @@ const FIAT = ['dollar', 'euro', 'aud', 'ruble']
 
 module.exports = function() {
 
+  this.init = () => {
+    
+  }
+
   this.get = (fiat, sats) => {
 
     if (!FIAT.includes(fiat)) return
