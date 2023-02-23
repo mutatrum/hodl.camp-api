@@ -1,7 +1,7 @@
 class Lab {
   getRandomColor = () => {
     do {
-      var l = Math.floor(Math.random() * 101);git 
+      var l = Math.floor(Math.random() * 101);
       var a = Math.floor(Math.random() * 256) - 128; 
       var b = Math.floor(Math.random() * 256) - 128
       var r = lab2rgb([l, a, b]);
