@@ -7,7 +7,7 @@ const cron = require("node-cron");
 const { createCanvas } = require('canvas');
 const lab = require('./lab.js');
 
-const FIAT = ['dollar', 'euro', 'aud', 'ruble']
+const FIAT = ['dollar', 'euro', 'aud', 'ruble', 'zloty']
 
 module.exports = function() {
 
