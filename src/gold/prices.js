@@ -42,11 +42,11 @@ module.exports = function() {
 
   function process(body) {
     if (!body.dataset_data) {
-      logger.log(`Error: ${body}`)
+      logger.log(`Error: ${JSON.stringify(body)}`)
       return
     }
     if (!body.dataset_data.hasOwnProperty('column_names')) {
-      logger.log(`Error: ${body}`)
+      logger.log(`Error: ${JSON.stringify(body)}`)
       return
     }
     const dateColumn = body.dataset_data.column_names.indexOf('Date')
