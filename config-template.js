@@ -7,4 +7,7 @@ module.exports = {
     username: '',
     password: ''
   },
+  nasdaq: {
+    apiKey: ''
+  }
 }

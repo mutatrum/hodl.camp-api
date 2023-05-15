@@ -4,10 +4,10 @@ const { formatDate } = require('../formatDate')
 const https = require("https");
 const cron = require("node-cron");
 
-const URL = "https://data.nasdaq.com/api/v3/datasets/11304240/data?collapse=daily";
+module.exports = function(nasdaq) {
 
-module.exports = function() {
-
+  const URL = `https://data.nasdaq.com/api/v3/datasets/11304240/data?collapse=daily&api-key=${nasdaq.apiKey}`
+  
   let result = {
     since: '',
     prices: []

@@ -7,11 +7,11 @@ const GoldPrices = require('./gold/prices')
 const Inflation = require('./dollar/inflation')
 const SatsPerDollar = require('./image/sats_per_dollar')
 
-module.exports = function(bitcoin_rpc) {
+module.exports = function(config, bitcoin_rpc) {
   const difficulty = new Difficulty(bitcoin_rpc)
   const halvings = new Halvings(bitcoin_rpc)
   const bitcoinPrices = new BitcoinPrices()
-  const goldPrices = new GoldPrices()
+  const goldPrices = new GoldPrices(config.nasdaq)
   const inflation = new Inflation()
   const satsPerDollar = new SatsPerDollar()
 

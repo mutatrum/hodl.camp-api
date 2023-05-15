@@ -10,7 +10,7 @@ module.exports = function(config) {
   this.run = async () => {
     logger.log('hodl.camp-api')
 
-    const controller = new Controller(bitcoin_rpc)
+    const controller = new Controller(config, bitcoin_rpc)
     await controller.init()
 
     const app = new App(config.port, controller)
