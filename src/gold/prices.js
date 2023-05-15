@@ -6,7 +6,7 @@ const cron = require("node-cron");
 
 module.exports = function(nasdaq) {
 
-  const URL = `https://data.nasdaq.com/api/v3/datasets/11304240/data?collapse=daily&api-key=${nasdaq.apiKey}`
+  const URL = `https://data.nasdaq.com/api/v3/datasets/11304240/data?collapse=daily&api_key=${nasdaq.apiKey}`
   
   let result = {
     since: '',
