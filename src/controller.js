@@ -2,6 +2,7 @@ const logger = require('./logger')
 
 const Difficulty = require('./bitcoin/difficulty')
 const Halvings = require('./bitcoin/halvings')
+const Taproot = require('./bitcoin/taproot')
 const BitcoinPrices = require('./bitcoin/prices')
 const GoldPrices = require('./gold/prices')
 const Inflation = require('./dollar/inflation')
@@ -10,6 +11,7 @@ const SatsPerDollar = require('./image/sats_per_dollar')
 module.exports = function(config, bitcoin_rpc) {
   const difficulty = new Difficulty(bitcoin_rpc)
   const halvings = new Halvings(bitcoin_rpc)
+  const taproot = new Taproot(bitcoin_rpc)
   const bitcoinPrices = new BitcoinPrices()
   const goldPrices = new GoldPrices(config.nasdaq)
   const inflation = new Inflation()
@@ -22,6 +24,8 @@ module.exports = function(config, bitcoin_rpc) {
     await difficulty.init()
 
     await halvings.init()
+
+    await taproot.init()
 
     bitcoinPrices.init()
 
@@ -37,6 +41,7 @@ module.exports = function(config, bitcoin_rpc) {
 
     difficulty.onBlockHeader(blockHeader)
     halvings.onBlockHeader(blockHeader)
+    taproot.onBlockHeader(blockHeader)
   }
 
   this.getDifficulty = () => difficulty.getDifficulty()
@@ -44,6 +49,8 @@ module.exports = function(config, bitcoin_rpc) {
   this.getHalvings = () => halvings.getHalvings()
 
   this.getBitcoinPrices = (since) => bitcoinPrices.getPrices(since)
+
+  this.getTransactions = (date) => taproot.getTransactions(date)
 
   this.getGoldPrices = (since) => goldPrices.getPrices(since)
 

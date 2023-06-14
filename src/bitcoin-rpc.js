@@ -5,10 +5,10 @@ module.exports = function(config) {
     this.getURI = () => `${config.host}:${config.zmqport}`
     this.getNetworkInfo = () => request('getnetworkinfo', [])
     this.getBlockchainInfo = () => request('getblockchaininfo', [])
-    this.getBestBlockHash = (block) => request('getbestblockhash', [])
+    this.getBestBlockHash = () => request('getbestblockhash', [])
     this.getBlockHash = (block) => request('getblockhash', [block])
     this.getBlockHeader = (hash) => request('getblockheader', [hash])
-    this.getBlock = (hash) => request('getblock', [hash])
+    this.getBlock = (hash, verbose = 1) => request('getblock', [hash, verbose])
     this.getRawTransaction = (txid, verbose, blockhash) => request('getrawtransaction', [txid, verbose, blockhash])
     this.getWalletInfo = () => request('getwalletinfo', [])
     this.listTransactions = (count, skip, watchOnly) => request('listtransactions', ['*', count, skip, watchOnly])

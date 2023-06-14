@@ -19,6 +19,10 @@ module.exports = function(port, controller) {
     return res.send(controller.getBitcoinPrices(req.query.since))
   })
 
+  app.get('/api/bitcoin/transactions', (req, res) => {
+    return res.send(controller.getTransactions(req.query.date))
+  })
+
   app.get('/api/gold/prices', (req, res) => {
     return res.send(controller.getGoldPrices(req.query.since))
   })
