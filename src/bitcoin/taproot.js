@@ -64,17 +64,15 @@ module.exports = function(bitcoin_rpc) {
     const bestBlockHeight = bestBlockHeader.height
     
     for (var height = currentHeight + 1; height <= bestBlockHeight; height++) {
-      if (!rows.has(height)) {
-        try {
-          const blockHash = await bitcoin_rpc.getBlockHash(height)
-          processBlockHash(blockHash)
-        }
-        catch (error)
-        {
-          rollbackTransaction.run()
-          console.log(error)
-          process.exit(-1)
-        }
+      try {
+        const blockHash = await bitcoin_rpc.getBlockHash(height)
+        processBlockHash(blockHash)
+      }
+      catch (error)
+      {
+        rollbackTransaction.run()
+        console.log(error)
+        process.exit(-1)
       }
       if (height % 100 == 0) {
         logger.log(`Block ${height}`)
