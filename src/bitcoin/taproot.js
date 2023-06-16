@@ -10,14 +10,17 @@ module.exports = function(bitcoin_rpc) {
   const beginTransaction = db.prepare('BEGIN TRANSACTION')
   const commitTransaction = db.prepare('COMMIT')
   const rollbackTransaction = db.prepare('ROLLBACK')
-  
+
   db.pragma('journal_mode=WAL')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS block (
       height INTEGER PRIMARY KEY NOT NULL UNIQUE,
       time INTEGER NOT NULL,
+      mediantime INTEGER NOT NULL,
       weight INTEGER NOT NULL,
+      difficulty REAL NOT NULL,
+      chainwork BINARY NOT NULL,
       hash BINARY NOT NULL
     )`)
 
@@ -81,8 +84,8 @@ module.exports = function(bitcoin_rpc) {
   db.pragma('wal_checkpoint')
 
   const insertBlock = db.prepare(`
-    INSERT INTO block(height, time, weight, hash) 
-    VALUES ($height, $time, $weight, $hash)`)
+    INSERT INTO block(height, time, mediantime, weight, difficulty, chainwork, hash)
+    VALUES ($height, $time, $mediantime, $weight, $difficulty, $chainwork, $hash)`)
 
   const insertTransactionType = db.prepare(`
     INSERT INTO transaction_type(name)
@@ -129,7 +132,7 @@ module.exports = function(bitcoin_rpc) {
     const bestBlockHash = await bitcoin_rpc.getBestBlockHash()
     const bestBlockHeader = await bitcoin_rpc.getBlockHeader(bestBlockHash)
     const bestBlockHeight = bestBlockHeader.height
-    
+
     const currentHeight = db.prepare(`SELECT max(height) FROM block`).pluck().get()
     var height = currentHeight ? currentHeight + 1 : 0
 
@@ -149,19 +152,18 @@ module.exports = function(bitcoin_rpc) {
       }
       var time = Math.floor(Date.now() / 1000)
       if (time != prevTime) {
+        db.pragma('wal_checkpoint')
         logger.log(`Block ${height} (${height - prevHeight}/sec)`)
         prevHeight = height
         prevTime = time
-        db.pragma('wal_checkpoint')
       }
-      height++      
+      height++
     }
   }
 
   db.pragma('wal_checkpoint')
 
-  this.onBl
-  ockHeader = async (blockHeader) => {
+  this.onBlockHeader = async (blockHeader) => {
     processBlockHash(blockHeader.hash)
 
     db.pragma('wal_checkpoint')
@@ -181,30 +183,20 @@ module.exports = function(bitcoin_rpc) {
 
     beginTransaction.run()
 
-    insertBlock.run({height: block.height, time: block.time, weight: block.weight, hash: Buffer.from(block.hash, 'hex')})
+    insertBlock.run({
+      height: block.height,
+      time: block.time,
+      mediantime: block.mediantime,
+      weight: block.weight,
+      difficulty: block.difficulty,
+      chainwork: Buffer.from(block.chainwork, 'hex'),
+      hash: Buffer.from(block.hash, 'hex')
+    })
 
     processTransactionStats(statistics.ins, block.height, 0)
     processTransactionStats(statistics.outs, block.height, 1)
     processInscriptionStats(statistics.inscriptions, block.height)
     processOrdinalStats(statistics.brc20s, block.height)
-
-    // for (const [key, {count, value}] of Object.entries(statistics.outs)) {
-    //   if (count != 0 || value != 0) {
-    //     insertStats.run({height: block.height, type: 'out', desc: key, count: count, size: null, value: (value * 1e8).toFixed(0)})
-    //   }
-    // }
-
-    // for (const [key, {count, size}] of Object.entries(statistics.kinds)) {
-    //   insertStats.run({height: block.height, type: 'kind', desc: key, count: count, size: size, value: null})
-    // }
-
-    // for (const [key, {count, size}] of Object.entries(statistics.inscriptions)) {
-    //   insertStats.run({height: block.height, type: 'inscription', desc: key, count: count, size: size, value: null})
-    // }
-
-    // for (const [key, {count, size}] of Object.entries(statistics.brc20s)) {
-    //   insertStats.run({height: block.height, type: 'brc20', desc: key, count: count, size: size, value: null})          
-    // }
 
     commitTransaction.run()
   }
@@ -268,7 +260,7 @@ module.exports = function(bitcoin_rpc) {
         })
       }
     }
-  }  
+  }
   this.getTransactions = function(date) {
     var from = new Date(date)
     var until = new Date(date)
@@ -280,10 +272,10 @@ module.exports = function(bitcoin_rpc) {
     // }
     // var transactions = selectTransactions.all(heightRange)
     // return {
-    //   from: heightRange.fromHeight, 
-    //   until: heightRange.untilHeight, 
+    //   from: heightRange.fromHeight,
+    //   until: heightRange.untilHeight,
     //   count: {
-    //     in: aggregateTransactions(transactions, 'in', 'count'), 
+    //     in: aggregateTransactions(transactions, 'in', 'count'),
     //     out: aggregateTransactions(transactions, 'out', 'count')
     //   } ,
     //   value: {
