@@ -140,16 +140,16 @@ module.exports = function(bitcoin_rpc) {
       hash = await bitcoin_rpc.getBlockHash(0);
     }
 
-    var prevTime = Math.floor(Date.now() / 1000)
+    var prevTime = Math.floor(Date.now() / 60000)
     while (hash) {
       const block = await bitcoin_rpc.getBlock(hash, 3)
 
       processBlock(block)
 
-      var time = Math.floor(Date.now() / 1000)
+      var time = Math.floor(Date.now() / 60000)
       if (time != prevTime) {
         db.pragma('wal_checkpoint')
-        logger.log(`Block ${block.height} (${block.height - prevHeight}/sec)`)
+        logger.log(`Block ${block.height} (${(block.height - prevHeight) / 60}/sec)`)
         prevHeight = block.height
         prevTime = time
       }
