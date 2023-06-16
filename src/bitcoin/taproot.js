@@ -15,7 +15,7 @@ module.exports = function(bitcoin_rpc) {
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS block (
-      height INTEGER NOT NULL UNIQUE,
+      height INTEGER PRIMARY KEY NOT NULL UNIQUE,
       time INTEGER NOT NULL,
       weight INTEGER NOT NULL,
       hash BINARY NOT NULL
@@ -24,46 +24,119 @@ module.exports = function(bitcoin_rpc) {
   db.exec(`CREATE INDEX IF NOT EXISTS time_idx ON block (time)`);
 
   db.exec(`
-    CREATE TABLE IF NOT EXISTS stats (
-      height INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      desc TEXT NOT NULL,
-      count INTEGER,
-      size INTEGER,
-      value INTEGER,
-      FOREIGN KEY (height) REFERENCES block(height)
+    CREATE TABLE IF NOT EXISTS transaction_type (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name STRING NOT NULL UNIQUE
     )`)
 
-  db.exec(`CREATE INDEX IF NOT EXISTS block_idx ON stats (height)`);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS transaction_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      height INTEGER NOT NULL REFERENCES block(height),
+      transaction_type_id INTEGER NOT NULL REFERENCES transaction_type(id),
+      is_output INTEGER NOT NULL,
+      count INTEGER NOT NULL,
+      value INTEGER NOT NULL
+    )`)
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_transaction_stats_height ON transaction_stats (height)`);
+
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inscription_type (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name STRING NOT NULL UNIQUE
+    )`)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inscription_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      height INTEGER NOT NULL REFERENCES block(height),
+      inscription_type_id INTEGER NOT NULL REFERENCES inscription_type(id),
+      count INTEGER NOT NULL,
+      size INTEGER NOT NULL
+    )`)
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_inscription_stats_height ON inscription_stats (height)`);
+
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ordinal_type (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name STRING NOT NULL UNIQUE
+    )`)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ordinal_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      height INTEGER NOT NULL REFERENCES block(height),
+      ordinal_type_id INTEGER NOT NULL REFERENCES ordinal_type(id),
+      count INTEGER NOT NULL,
+      size INTEGER NOT NULL
+    )`)
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_ordinal_stats_height ON ordinal_stats (height)`);
+
 
   db.pragma('wal_checkpoint')
 
   const insertBlock = db.prepare(`
     INSERT INTO block(height, time, weight, hash) 
-    VALUES ($height, $time, $weight, $hash)
-    `)
-  const insertStats = db.prepare(`
-    INSERT INTO stats(height, type, desc, count, size, value) 
-    VALUES ($height, $type, $desc, $count, $size, $value)
-    `)
+    VALUES ($height, $time, $weight, $hash)`)
 
-  const selectTransactions = db.prepare(`
-    SELECT type, desc, sum(count) as count, sum(value) as value
-    FROM stats JOIN block ON stats.height = block.height 
-    WHERE block.time between $from and $until 
-    AND type in ('in', 'out')
-    GROUP BY type, desc
-    `)
+  const insertTransactionType = db.prepare(`
+    INSERT INTO transaction_type(name)
+    VALUES ($name)`)
+
+  const insertTransactionStats = db.prepare(`
+    INSERT INTO transaction_stats(height, transaction_type_id, is_output, count, value)
+    VALUES ($height, $transaction_type_id, $is_output, $count, $value)`)
+
+  const insertInscriptionType = db.prepare(`
+    INSERT INTO inscription_type(name)
+    VALUES ($name)`)
+
+  const insertInscriptionStats = db.prepare(`
+    INSERT INTO inscription_stats(height, inscription_type_id, count, size)
+    VALUES ($height, $inscription_type_id, $count, $size)`)
+
+  const insertOrdinalType = db.prepare(`
+    INSERT INTO ordinal_type(name)
+    VALUES ($name)`)
+
+  const insertOrdinalStats = db.prepare(`
+    INSERT INTO ordinal_stats(height, ordinal_type_id, count, size)
+    VALUES ($height, $ordinal_type_id, $count, $size)`)
+
+  // const selectHeightRange = db.prepare(`
+  //   SELECT MIN(height) as fromHeight, MAX(height) as untilHeight FROM block WHERE time BETWEEN $from AND $until
+  //   `)
+
+  // const selectTransactions = db.prepare(`
+  //   SELECT type, desc, sum(count) as count, sum(value) as value
+  //   FROM stats
+  //   WHERE height BETWEEN $fromHeight AND $untilHeight
+  //   AND type IN ('in', 'out')
+  //   GROUP BY type, desc
+  //   `)
+
+  const transactionTypes = getTypes('transaction_type')
+  const inscriptionTypes = getTypes('inscription_type')
+  const ordinalTypes = getTypes('ordinal_type')
 
   this.init = async () => {
 
-    const currentHeight = db.prepare(`SELECT max(height) FROM block`).pluck().get()
-    
     const bestBlockHash = await bitcoin_rpc.getBestBlockHash()
     const bestBlockHeader = await bitcoin_rpc.getBlockHeader(bestBlockHash)
     const bestBlockHeight = bestBlockHeader.height
     
-    for (var height = currentHeight + 1; height <= bestBlockHeight; height++) {
+    const currentHeight = db.prepare(`SELECT max(height) FROM block`).pluck().get()
+    var height = currentHeight ? currentHeight + 1 : 0
+
+    var prevTime = Math.floor(Date.now() / 1000)
+    var prevHeight = 0
+
+    while (height <= bestBlockHeight) {
       try {
         const blockHash = await bitcoin_rpc.getBlockHash(height)
         processBlockHash(blockHash)
@@ -74,19 +147,31 @@ module.exports = function(bitcoin_rpc) {
         console.log(error)
         process.exit(-1)
       }
-      if (height % 100 == 0) {
-        logger.log(`Block ${height}`)
+      var time = Math.floor(Date.now() / 1000)
+      if (time != prevTime) {
+        logger.log(`Block ${height} (${height - prevHeight}/sec)`)
+        prevHeight = height
+        prevTime = time
         db.pragma('wal_checkpoint')
       }
+      height++      
     }
   }
 
   db.pragma('wal_checkpoint')
 
-  this.onBlockHeader = async (blockHeader) => {
+  this.onBl
+  ockHeader = async (blockHeader) => {
     processBlockHash(blockHeader.hash)
 
     db.pragma('wal_checkpoint')
+  }
+
+  function getTypes(table_name) {
+    const result = {}
+    for (const row of db.prepare(`SELECT rowid,name FROM ${table_name}`).iterate())
+      result[row.name] = row.id;
+    return result
   }
 
   async function processBlockHash(hash) {
@@ -98,39 +183,121 @@ module.exports = function(bitcoin_rpc) {
 
     insertBlock.run({height: block.height, time: block.time, weight: block.weight, hash: Buffer.from(block.hash, 'hex')})
 
-    for (const [key, {count, value}] of Object.entries(statistics.ins)) {
-      if (count != 0 || value != 0) {
-        insertStats.run({height: block.height, type: 'in', desc: key, count: count, size: null, value: (value * 1e8).toFixed(0)})
-      }
-    }
+    processTransactionStats(statistics.ins, block.height, 0)
+    processTransactionStats(statistics.outs, block.height, 1)
+    processInscriptionStats(statistics.inscriptions, block.height)
+    processOrdinalStats(statistics.brc20s, block.height)
 
-    for (const [key, {count, value}] of Object.entries(statistics.outs)) {
-      if (count != 0 || value != 0) {
-        insertStats.run({height: block.height, type: 'out', desc: key, count: count, size: null, value: (value * 1e8).toFixed(0)})
-      }
-    }
+    // for (const [key, {count, value}] of Object.entries(statistics.outs)) {
+    //   if (count != 0 || value != 0) {
+    //     insertStats.run({height: block.height, type: 'out', desc: key, count: count, size: null, value: (value * 1e8).toFixed(0)})
+    //   }
+    // }
 
-    for (const [key, {count, size}] of Object.entries(statistics.kinds)) {
-      insertStats.run({height: block.height, type: 'kind', desc: key, count: count, size: size, value: null})
-    }
+    // for (const [key, {count, size}] of Object.entries(statistics.kinds)) {
+    //   insertStats.run({height: block.height, type: 'kind', desc: key, count: count, size: size, value: null})
+    // }
 
-    for (const [key, {count, size}] of Object.entries(statistics.inscriptions)) {
-      insertStats.run({height: block.height, type: 'inscription', desc: key, count: count, size: size, value: null})
-    }
+    // for (const [key, {count, size}] of Object.entries(statistics.inscriptions)) {
+    //   insertStats.run({height: block.height, type: 'inscription', desc: key, count: count, size: size, value: null})
+    // }
 
-    for (const [key, {count, size}] of Object.entries(statistics.brc20s)) {
-      insertStats.run({height: block.height, type: 'brc20', desc: key, count: count, size: size, value: null})          
-    }
+    // for (const [key, {count, size}] of Object.entries(statistics.brc20s)) {
+    //   insertStats.run({height: block.height, type: 'brc20', desc: key, count: count, size: size, value: null})          
+    // }
 
     commitTransaction.run()
   }
 
+  function processTransactionStats(stats, height, is_output) {
+    for (const [key, {count, value}] of Object.entries(stats)) {
+      var transaction_type_id = transactionTypes[key]
+      if (!transaction_type_id) {
+        var insertTransactionTypeResult = insertTransactionType.run({name: key})
+        transaction_type_id = insertTransactionTypeResult.lastInsertRowid
+        transactionTypes[key] = transaction_type_id
+      }
+
+      if (count > 0 || value > 0) {
+        insertTransactionStats.run({
+          height: height,
+          transaction_type_id: transaction_type_id,
+          is_output: is_output,
+          count: count,
+          value: (value * 1e8).toFixed(0)
+        })
+      }
+    }
+  }
+
+  function processInscriptionStats(stats, height) {
+    for (const [key, {count, size}] of Object.entries(stats)) {
+      var inscription_type_id = inscriptionTypes[key]
+      if (!inscription_type_id) {
+        var insertInscriptionTypeResult = insertInscriptionType.run({name: key})
+        inscription_type_id = insertInscriptionTypeResult.lastInsertRowid
+        inscriptionTypes[key] = inscription_type_id
+      }
+
+      if (size > 0 || value > 0) {
+        insertInscriptionStats.run({
+          height: height,
+          inscription_type_id: inscription_type_id,
+          count: count,
+          size: size
+        })
+      }
+    }
+  }
+
+  function processOrdinalStats(stats, height) {
+    for (const [key, {count, size}] of Object.entries(stats)) {
+      var ordinal_type_id = ordinalTypes[key]
+      if (!ordinal_type_id) {
+        var insertOrdinalTypeResult = insertOrdinalType.run({name: key})
+        ordinal_type_id = insertOrdinalTypeResult.lastInsertRowid
+        inscriptionTypes[key] = ordinal_type_id
+      }
+
+      if (size > 0 || value > 0) {
+        insertOrdinalStats.run({
+          height: height,
+          ordinal_type_id: ordinal_type_id,
+          count: count,
+          size: size
+        })
+      }
+    }
+  }  
   this.getTransactions = function(date) {
     var from = new Date(date)
     var until = new Date(date)
     until.setDate(from.getDate() + 1)
-    return selectTransactions.all({from: from.getTime() / 1000, until: until.getTime() / 1000});
+
+    // var heightRange = selectHeightRange.get({from: from.getTime() / 1000, until: until.getTime() / 1000})
+    // if (heightRange.fromHeight == null) {
+    //   return {}
+    // }
+    // var transactions = selectTransactions.all(heightRange)
+    // return {
+    //   from: heightRange.fromHeight, 
+    //   until: heightRange.untilHeight, 
+    //   count: {
+    //     in: aggregateTransactions(transactions, 'in', 'count'), 
+    //     out: aggregateTransactions(transactions, 'out', 'count')
+    //   } ,
+    //   value: {
+    //     in: aggregateTransactions(transactions, 'in', 'value'),
+    //     out: aggregateTransactions(transactions, 'out', 'value')
+    //   }
+    // }
   }
 }
 
-// select type, desc, count(*), sum(count), sum(size), sum(value) from stats join block on stats.height=block.height where block.time between 1276293600 and 1276380000 group by type, desc;
+function aggregateTransactions(transactions, type, category) {
+  return transactions.filter(entry => entry.type == type).reduce((map, entry) => {
+    var value = entry[category]
+    if (value > 0) map[entry.desc] = value
+    return map;
+  }, {})
+}
