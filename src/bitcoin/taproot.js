@@ -149,7 +149,7 @@ module.exports = function(bitcoin_rpc) {
       var time = Math.floor(Date.now() / 60000)
       if (time != prevTime) {
         db.pragma('wal_checkpoint')
-        logger.log(`Block ${block.height} (${(block.height - prevHeight) / 60}/sec)`)
+        logger.log(`Block ${block.height} (${((block.height - prevHeight) / 60).toFixed(1)}/sec)`)
         prevHeight = block.height
         prevTime = time
       }
