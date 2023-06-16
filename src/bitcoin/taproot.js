@@ -126,45 +126,45 @@ module.exports = function(bitcoin_rpc) {
   const transactionTypes = getTypes('transaction_type')
   const inscriptionTypes = getTypes('inscription_type')
   const ordinalTypes = getTypes('ordinal_type')
-
+  
   this.init = async () => {
 
-    const bestBlockHash = await bitcoin_rpc.getBestBlockHash()
-    const bestBlockHeader = await bitcoin_rpc.getBlockHeader(bestBlockHash)
-    const bestBlockHeight = bestBlockHeader.height
-
-    const currentHeight = db.prepare(`SELECT max(height) FROM block`).pluck().get()
-    var height = currentHeight ? currentHeight + 1 : 0
-
-    var prevTime = Math.floor(Date.now() / 1000)
+    var hash = db.prepare(`SELECT HEX(hash) as hash FROM block WHERE height = (SELECT MAX(height) FROM block)`).pluck().get()
     var prevHeight = 0
 
-    while (height <= bestBlockHeight) {
-      try {
-        const blockHash = await bitcoin_rpc.getBlockHash(height)
-        processBlockHash(blockHash)
-      }
-      catch (error)
-      {
-        rollbackTransaction.run()
-        console.log(error)
-        process.exit(-1)
-      }
+    if(hash) {
+      var blockHeader = await bitcoin_rpc.getBlockHeader(hash)
+      hash = blockHeader.nextblockhash
+      prevHeight = blockHeader.height
+    } else {
+      hash = await bitcoin_rpc.getBlockHash(0);
+    }
+
+    var prevTime = Math.floor(Date.now() / 1000)
+    while (hash) {
+      const block = await bitcoin_rpc.getBlock(hash, 3)
+
+      processBlock(block)
+
       var time = Math.floor(Date.now() / 1000)
       if (time != prevTime) {
         db.pragma('wal_checkpoint')
-        logger.log(`Block ${height} (${height - prevHeight}/sec)`)
-        prevHeight = height
+        logger.log(`Block ${block.height} (${block.height - prevHeight}/sec)`)
+        prevHeight = block.height
         prevTime = time
       }
-      height++
+
+      hash = block.nextblockhash
     }
   }
 
   db.pragma('wal_checkpoint')
 
   this.onBlockHeader = async (blockHeader) => {
-    processBlockHash(blockHeader.hash)
+
+    const block = await bitcoin_rpc.getBlock(blockHeader.hash, 3)
+
+    processBlock(block)
 
     db.pragma('wal_checkpoint')
   }
@@ -176,29 +176,36 @@ module.exports = function(bitcoin_rpc) {
     return result
   }
 
-  async function processBlockHash(hash) {
-    const block = await bitcoin_rpc.getBlock(hash, 3)
+  async function processBlock(block) {
 
     const statistics = getStatistics(block)
 
     beginTransaction.run()
 
-    insertBlock.run({
-      height: block.height,
-      time: block.time,
-      mediantime: block.mediantime,
-      weight: block.weight,
-      difficulty: block.difficulty,
-      chainwork: Buffer.from(block.chainwork, 'hex'),
-      hash: Buffer.from(block.hash, 'hex')
-    })
+    try {
+      insertBlock.run({
+        height: block.height,
+        time: block.time,
+        mediantime: block.mediantime,
+        weight: block.weight,
+        difficulty: block.difficulty,
+        chainwork: Buffer.from(block.chainwork, 'hex'),
+        hash: Buffer.from(block.hash, 'hex')
+      })
 
-    processTransactionStats(statistics.ins, block.height, 0)
-    processTransactionStats(statistics.outs, block.height, 1)
-    processInscriptionStats(statistics.inscriptions, block.height)
-    processOrdinalStats(statistics.brc20s, block.height)
+      processTransactionStats(statistics.ins, block.height, 0)
+      processTransactionStats(statistics.outs, block.height, 1)
+      processInscriptionStats(statistics.inscriptions, block.height)
+      processOrdinalStats(statistics.brc20s, block.height)
 
-    commitTransaction.run()
+      commitTransaction.run()
+    }
+    catch (error)
+    {
+      rollbackTransaction.run()
+      console.log(error)
+      process.exit(-1)
+    }
   }
 
   function processTransactionStats(stats, height, is_output) {
