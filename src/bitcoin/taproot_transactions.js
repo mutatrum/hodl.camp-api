@@ -49,11 +49,6 @@ module.exports = function(block) {
       if (prevout.scriptPubKey.type === 'witness_v1_taproot') {
         if (vin.txinwitness !== undefined) {
           for (var txinwitness of vin.txinwitness) {
-            // https://bitcoin.stackexchange.com/questions/118604/how-can-i-tell-if-a-taproot-input-is-a-key-path-spend-or-a-script-path-spend/
-            // Only check this is there's at least 2 items
-            // if (txinwitness.startsWith('50')) {
-            //   logger.log(`${tx.txid} axxex ${txinwitness}`)
-            // }
             if(txinwitness.match(INSCRIPTION_PATTERN)) {
               inscriptionCount++
               let length = parseInt(txinwitness.substring(84, 86), 16)
@@ -82,7 +77,12 @@ module.exports = function(block) {
               content_type = 'brc-20 text'
             }
           }
-          type += vin.txinwitness.length ? ' scriptpath' : ' keypath';
+          // https://bitcoin.stackexchange.com/questions/118604/how-can-i-tell-if-a-taproot-input-is-a-key-path-spend-or-a-script-path-spend/
+          let witness_count = vin.txinwitness.length
+          let has_annex = vin.txinwitness[vin.txinwitness.length - 1].startsWith('50')
+          if (has_annex) witness_count--;
+          type += witness_count == 1 ? ' scriptpath' : ' keypath'
+          if (has_annex) type += ' annex'
         } else {
           type += ' no witness'
         }
