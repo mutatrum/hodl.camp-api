@@ -49,9 +49,11 @@ module.exports = function(block) {
       if (prevout.scriptPubKey.type === 'witness_v1_taproot') {
         if (vin.txinwitness !== undefined) {
           for (var txinwitness of vin.txinwitness) {
-            if (txinwitness.startsWith('50')) {
-              logger.log(`${tx.txid} axxex ${txinwitness}`)
-            }
+            // https://bitcoin.stackexchange.com/questions/118604/how-can-i-tell-if-a-taproot-input-is-a-key-path-spend-or-a-script-path-spend/
+            // Only check this is there's at least 2 items
+            // if (txinwitness.startsWith('50')) {
+            //   logger.log(`${tx.txid} axxex ${txinwitness}`)
+            // }
             if(txinwitness.match(INSCRIPTION_PATTERN)) {
               inscriptionCount++
               let length = parseInt(txinwitness.substring(84, 86), 16)
