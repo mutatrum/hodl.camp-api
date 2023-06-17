@@ -79,7 +79,7 @@ module.exports = function(block) {
           }
           // https://bitcoin.stackexchange.com/questions/118604/how-can-i-tell-if-a-taproot-input-is-a-key-path-spend-or-a-script-path-spend/
           let witness_count = vin.txinwitness.length
-          let has_annex = vin.txinwitness[vin.txinwitness.length - 1].startsWith('50')
+          let has_annex = witness_count > 1 && vin.txinwitness[vin.txinwitness.length - 1].startsWith('50')
           if (has_annex) witness_count--;
           type += witness_count == 1 ? ' scriptpath' : ' keypath'
           if (has_annex) type += ' annex'
