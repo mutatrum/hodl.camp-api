@@ -9,25 +9,19 @@ const TYPES = ['coinbase', 'fee', 'pubkey', 'pubkeyhash', 'scripthash', 'multisi
 module.exports = function(block) {
 
   var ins = {}
-  var outs = {'coinbase': {count: 0, value: 0}, 'fee': {count:0, value: 0}}
+  var outs = {'coinbase': {count: 0, value: 0}, 'fee': {count:0, value: 0}, 'fee cpfp': {count:0, value: 0}}
   let kinds = {}
   let inscriptions = {}
   let brc20s = {}
-  
-  
-  let currentBlockInscriptions = {}
-  let currentBRC20 = {}
-  let currentBlockKinds = {}
 
   var fee = 0
+  var cpfp = 0;
 
   var txids = new Map()
 
   for (var tx of block.tx.splice(1)) {
 
     txids.set(tx.txid, tx.fee / tx.vsize)
-
-    fee += tx.fee
 
     for (var vout of tx.vout) {
       var type = vout.scriptPubKey.type
@@ -52,6 +46,46 @@ module.exports = function(block) {
       var prevout = vin.prevout
       var type = prevout.scriptPubKey.type
 
+      if (prevout.scriptPubKey.type === 'witness_v1_taproot') {
+        if (vin.txinwitness !== undefined) {
+          for (var txinwitness of vin.txinwitness) {
+            if (txinwitness.startsWith('50')) {
+              logger.log(`${tx.txid} axxex ${txinwitness}`)
+            }
+            if(txinwitness.match(INSCRIPTION_PATTERN)) {
+              inscriptionCount++
+              let length = parseInt(txinwitness.substring(84, 86), 16)
+              content_type = Buffer.from(txinwitness.substring(86, 86 + (length * 2)), "hex").toString("utf-8").split(';')[0].split('+')[0].split('/')[1]
+              continue;
+            }
+            var brc20_match = txinwitness.match(BRC20_PATTERN)
+            if(brc20_match) {
+              brc20Count++;
+              try {
+                var json = JSON.parse(Buffer.from(brc20_match[1], "hex").toString("utf-8"))
+                // console.log(`${block.height} ${tx.txid} ${JSON.stringify(json)}`)
+                if (json.p === 'brc-20') {
+                  content_type = json.op.substring(0, 4) + ' ' + json.tick.toLowerCase()
+                } else {
+                  content_type = json.p + ' ' + json.op
+                }
+              }
+              catch (syntaxError) {
+                content_type = 'brc-20 invalid'
+              }
+              continue;
+            }
+            var text = Buffer.from(txinwitness, "hex").toString("utf-8")
+            if (text.indexOf('ord') != -1 && text.indexOf('text/plain') != -1) {
+              content_type = 'brc-20 text'
+            }
+          }
+          type += vin.txinwitness.length ? ' scriptpath' : ' keypath';
+        } else {
+          type += ' no witness'
+        }
+      }
+
       if (TYPES.indexOf(type) === -1) TYPES.push(type)
 
       if (typeof ins[type] === 'undefined') {
@@ -61,47 +95,13 @@ module.exports = function(block) {
       ins[type].count += 1
       if (txids.has(vin.txid)) {
         // Transaction is spent in same block
-        outs[type].value -= prevout.value
+        outs[prevout.scriptPubKey.type].value -= prevout.value
         let feeRate = tx.fee / tx.vsize
-        // console.log(`${txids.get(vin.txid)} < ${feeRate}`)
         if (txids.get(vin.txid) < feeRate) {
-          // console.log(tx)
           isCPFP = true
         }
       } else {
         ins[type].value += prevout.value
-      }
-
-      if (prevout.scriptPubKey.type === 'witness_v1_taproot' && vin.txinwitness !== undefined) {
-        for (var txinwitness of vin.txinwitness) {
-          if(txinwitness.match(INSCRIPTION_PATTERN)) {
-            inscriptionCount++
-            let length = parseInt(txinwitness.substring(84, 86), 16)
-            content_type = Buffer.from(txinwitness.substring(86, 86 + (length * 2)), "hex").toString("utf-8").split(';')[0].split('+')[0].split('/')[1]
-            continue;
-          }
-          var brc20_match = txinwitness.match(BRC20_PATTERN)
-          if(brc20_match) {
-            brc20Count++;
-            try {
-              var json = JSON.parse(Buffer.from(brc20_match[1], "hex").toString("utf-8"))
-              // console.log(`${block.height} ${tx.txid} ${JSON.stringify(json)}`)
-              if (json.p === 'brc-20') {
-                content_type = json.op.substring(0, 4) + ' ' + json.tick.toLowerCase()
-              } else {
-                content_type = json.p + ' ' + json.op
-              }
-            }
-            catch (syntaxError) {
-              content_type = 'brc-20 invalid'
-            }
-            continue;
-          }
-          var text = Buffer.from(txinwitness, "hex").toString("utf-8")
-          if (text.indexOf('ord') != -1 && text.indexOf('text/plain') != -1) {
-            content_type = 'brc-20 text'
-          }
-        }
       }
     }
 
@@ -125,14 +125,6 @@ module.exports = function(block) {
       total.count++
       total.size += tx.weight
 
-      let current = currentBlockInscriptions[content_type]
-      if (!current) {
-        current = {count: 0, size: 0}
-        currentBlockInscriptions[content_type] = current
-      }
-      current.count++
-      current.size += tx.weight
-
       kind = 'Inscription'
     }
 
@@ -144,14 +136,6 @@ module.exports = function(block) {
       }
       total.count++
       total.size += tx.weight
-
-      let current = currentBRC20[content_type]
-      if (!current) {
-        current = {count: 0, size: 0}
-        currentBRC20[content_type] = current
-      }
-      current.count++
-      current.size += tx.weight
 
       kind = 'BRC-20'
     }
@@ -167,7 +151,7 @@ module.exports = function(block) {
       kind = getKind(tx.vin.length, tx.vout.length)
 
       // if (tx.txid == '12afa4bfab373ac148e4ad9145d39329105fb56a7027cd7253d2b7c7027c5b86') console.log(tx)
-      // if (isCPFP) kind += ' C' //console.log(tx.txid) // kind != '1 → 1' && 
+      // if (isCPFP) kind += ' CPFP' //console.log(tx.txid) // kind != '1 → 1' && 
     }
 
     let totalKind = kinds[kind]
@@ -178,17 +162,16 @@ module.exports = function(block) {
     totalKind.count++
     totalKind.size += tx.weight
 
-    let currentKind = currentBlockKinds[kind]
-    if (!currentKind) {
-      currentKind = {count: 0, size: 0}
-      currentBlockKinds[kind] = currentKind
+    if (isCPFP) {
+      cpfp += tx.fee
+    } else {     
+      fee += tx.fee
     }
-    currentKind.count++
-    currentKind.size += tx.weight
   }
 
-  outs['coinbase'].value += block.tx[0].vout[0].value - fee
+  outs['coinbase'].value += block.tx[0].vout[0].value - (fee - cpfp)
   outs['fee'].value += fee
+  outs['fee cpfp'].value += cpfp
 
   return {
     ins: ins,

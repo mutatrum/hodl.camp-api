@@ -64,6 +64,24 @@ module.exports = function(bitcoin_rpc) {
 
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS kind_type (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name STRING NOT NULL UNIQUE
+    )`)
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kind_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      height INTEGER NOT NULL REFERENCES block(height),
+      kind_type_id INTEGER NOT NULL REFERENCES kind_type(id),
+      count INTEGER NOT NULL,
+      size INTEGER NOT NULL
+    )`)
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_kind_stats_height ON kind_stats (height)`);
+
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS ordinal_type (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name STRING NOT NULL UNIQUE
@@ -95,6 +113,14 @@ module.exports = function(bitcoin_rpc) {
     INSERT INTO transaction_stats(height, transaction_type_id, is_output, count, value)
     VALUES ($height, $transaction_type_id, $is_output, $count, $value)`)
 
+  const insertKindType = db.prepare(`
+    INSERT INTO kind_type(name)
+    VALUES ($name)`)
+
+  const insertKindStats = db.prepare(`
+    INSERT INTO kind_stats(height, kind_type_id, count, size)
+    VALUES ($height, $kind_type_id, $count, $size)`)
+
   const insertInscriptionType = db.prepare(`
     INSERT INTO inscription_type(name)
     VALUES ($name)`)
@@ -124,6 +150,7 @@ module.exports = function(bitcoin_rpc) {
   //   `)
 
   const transactionTypes = getTypes('transaction_type')
+  const kindTypes = getTypes('kind_type')
   const inscriptionTypes = getTypes('inscription_type')
   const ordinalTypes = getTypes('ordinal_type')
   
@@ -195,6 +222,7 @@ module.exports = function(bitcoin_rpc) {
 
       processTransactionStats(statistics.ins, block.height, 0)
       processTransactionStats(statistics.outs, block.height, 1)
+      processKindStats(statistics.kinds, block.height)
       processInscriptionStats(statistics.inscriptions, block.height)
       processOrdinalStats(statistics.brc20s, block.height)
 
@@ -224,6 +252,26 @@ module.exports = function(bitcoin_rpc) {
           is_output: is_output,
           count: count,
           value: (value * 1e8).toFixed(0)
+        })
+      }
+    }
+  }
+
+  function processKindStats(stats, height) {
+    for (const [key, {count, size}] of Object.entries(stats)) {
+      var kind_type_id = kindTypes[key]
+      if (!kind_type_id) {
+        var insertKindTypeResult = insertKindType.run({name: key})
+        kind_type_id = insertKindTypeResult.lastInsertRowid
+        kindTypes[key] = kind_type_id
+      }
+
+      if (size > 0 || value > 0) {
+        insertKindStats.run({
+          height: height,
+          kind_type_id: kind_type_id,
+          count: count,
+          size: size
         })
       }
     }
