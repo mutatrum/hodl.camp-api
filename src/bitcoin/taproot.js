@@ -303,7 +303,7 @@ module.exports = function(bitcoin_rpc) {
       if (!ordinal_type_id) {
         var insertOrdinalTypeResult = insertOrdinalType.run({name: key})
         ordinal_type_id = insertOrdinalTypeResult.lastInsertRowid
-        inscriptionTypes[key] = ordinal_type_id
+        ordinalTypes[key] = ordinal_type_id
       }
 
       if (size > 0 || value > 0) {
