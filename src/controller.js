@@ -47,6 +47,7 @@ module.exports = function(config, bitcoin_rpc) {
   this.getDifficulty = () => difficulty.getDifficulty()
 
   this.getHalvings = () => halvings.getHalvings()
+  this.getHalvingCandles = () => halvings.getHalvingCandles()
 
   this.getBitcoinPrices = (since) => bitcoinPrices.getPrices(since)
 

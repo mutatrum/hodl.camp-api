@@ -15,12 +15,16 @@ module.exports = function(port, controller) {
     return res.send(controller.getHalvings())
   })
 
+  app.get('/api/bitcoin/halving_candles', (req, res) => {
+    return res.send(controller.getHalvingCandles())
+  })
+
   app.get('/api/bitcoin/prices', (req, res) => {
     return res.send(controller.getBitcoinPrices(req.query.since))
   })
 
-  app.get('/api/bitcoin/transactions', (req, res) => {
-    return res.send(controller.getTransactions(req.query.date))
+  app.get('/api/bitcoin/transactions/:date', (req, res) => {
+    return res.send(controller.getTransactions(req.params.date))
   })
 
   app.get('/api/gold/prices', (req, res) => {

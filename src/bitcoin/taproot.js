@@ -137,17 +137,33 @@ module.exports = function(bitcoin_rpc) {
     INSERT INTO ordinal_stats(height, ordinal_type_id, count, size)
     VALUES ($height, $ordinal_type_id, $count, $size)`)
 
-  // const selectHeightRange = db.prepare(`
-  //   SELECT MIN(height) as fromHeight, MAX(height) as untilHeight FROM block WHERE time BETWEEN $from AND $until
-  //   `)
+  const selectHeightRange = db.prepare(`
+    SELECT MIN(height) as fromHeight, MAX(height) as untilHeight FROM block WHERE time BETWEEN $from AND $until`)
 
-  // const selectTransactions = db.prepare(`
-  //   SELECT type, desc, sum(count) as count, sum(value) as value
-  //   FROM stats
-  //   WHERE height BETWEEN $fromHeight AND $untilHeight
-  //   AND type IN ('in', 'out')
-  //   GROUP BY type, desc
-  //   `)
+  const selectTransactions = db.prepare(`
+    SELECT name, is_output, SUM(count) AS count, SUM(value) AS value 
+      FROM transaction_stats 
+      LEFT JOIN transaction_type ON transaction_type_id = transaction_type.id 
+      WHERE height BETWEEN $fromHeight AND $untilHeight 
+      GROUP BY name, is_output`)
+
+  const selectKinds = db.prepare(`
+    SELECT name, SUM(count) AS count, SUM(size) AS size
+      FROM kind_stats LEFT JOIN kind_type ON kind_type_id = kind_type.id
+      WHERE height BETWEEN $fromHeight AND $untilHeight
+      GROUP BY name`)
+
+  const selectInscriptions = db.prepare(`
+    SELECT name, SUM(count) AS count, SUM(size) AS size
+      FROM inscription_stats LEFT JOIN inscription_type ON inscription_type_id = inscription_type.id
+      WHERE height BETWEEN $fromHeight AND $untilHeight
+      GROUP BY name`)
+
+  const selectOrdinals = db.prepare(`
+    SELECT name, SUM(count) AS count, SUM(size) AS size
+      FROM ordinal_stats LEFT JOIN ordinal_type ON ordinal_type_id = ordinal_type.id
+      WHERE height BETWEEN $fromHeight AND $untilHeight
+      GROUP BY name`)
 
   const transactionTypes = getTypes('transaction_type')
   const kindTypes = getTypes('kind_type')
@@ -321,30 +337,32 @@ module.exports = function(bitcoin_rpc) {
     var until = new Date(date)
     until.setDate(from.getDate() + 1)
 
-    // var heightRange = selectHeightRange.get({from: from.getTime() / 1000, until: until.getTime() / 1000})
-    // if (heightRange.fromHeight == null) {
-    //   return {}
-    // }
-    // var transactions = selectTransactions.all(heightRange)
-    // return {
-    //   from: heightRange.fromHeight,
-    //   until: heightRange.untilHeight,
-    //   count: {
-    //     in: aggregateTransactions(transactions, 'in', 'count'),
-    //     out: aggregateTransactions(transactions, 'out', 'count')
-    //   } ,
-    //   value: {
-    //     in: aggregateTransactions(transactions, 'in', 'value'),
-    //     out: aggregateTransactions(transactions, 'out', 'value')
-    //   }
-    // }
+    var heightRange = selectHeightRange.get({from: from.getTime() / 1000, until: until.getTime() / 1000})
+    if (heightRange.fromHeight == null) {
+      return {}
+    }
+    var transactions = selectTransactions.all(heightRange)
+    var transactionsIn = transactions.filter(entry => entry.is_output == 0);
+    var transactionsOut = transactions.filter(entry => entry.is_output == 1);
+    var kinds = selectKinds.all(heightRange)
+    var inscriptions = selectInscriptions.all(heightRange)
+    var ordinals = selectOrdinals.all(heightRange)
+    return {
+      from: heightRange.fromHeight,
+      until: heightRange.untilHeight,
+      in: mapName(transactionsIn),
+      out: mapName(transactionsOut),
+      kind: mapName(kinds),
+      inscription: mapName(inscriptions),
+      ordinal: mapName(ordinals)
+    }
   }
 }
 
-function aggregateTransactions(transactions, type, category) {
-  return transactions.filter(entry => entry.type == type).reduce((map, entry) => {
-    var value = entry[category]
-    if (value > 0) map[entry.desc] = value
+function mapName(transactions, category) {
+  return transactions.reduce((map, entry) => {
+    const { name, is_input, is_output, ...rest } = entry;
+    map[name] = rest
     return map;
   }, {})
 }
