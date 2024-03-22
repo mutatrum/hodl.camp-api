@@ -62,7 +62,7 @@ module.exports = function() {
   }
 
   function createImage(fiat, sats, settings) {
-    var [r, g, b] = [212,175,55] //lab.getRandomColor();
+    var [r, g, b] = lab.getRandomColor();
     
     var background = 0xFF000000 + (b << 16) + (g << 8) + r;
     var color = (r * 0.299 + g * 0.587 + b * 0.114) > 149 ? 0xFF000000 : 0xFFFFFFFF;
