@@ -1,5 +1,5 @@
 const logger = require('../logger')
-const { formatDate } = require('../formatDate')
+const { formatDate, formatDateTime } = require('../formatDate')
 
 module.exports = function(bitcoin_rpc) {
 
@@ -27,8 +27,8 @@ module.exports = function(bitcoin_rpc) {
       halving_candles.push(date)
     }
 
-    nextHalving = await getNextHalvingDate(bestBlockHeader, HALVING)
-    nextHalvingCandle = await getNextHalvingDate(bestBlockHeader, QUARTER)
+    nextHalving = formatDateTime(await getNextHalvingDate(bestBlockHeader, HALVING))
+    nextHalvingCandle = formatDate(await getNextHalvingDate(bestBlockHeader, QUARTER))
 
     logger.log(`Halvings: ${halvings}`)
     logger.log(`Next halving: ${nextHalving}`)
@@ -42,13 +42,13 @@ module.exports = function(bitcoin_rpc) {
       }
     }
 
-    var next = await getNextHalvingDate(blockHeader, HALVING)
+    var next = formatDateTime(await getNextHalvingDate(blockHeader, HALVING))
     if (nextHalving != next) {
       logger.log(`Next halving: ${nextHalving}`)
     }
     nextHalving = next;
 
-    var next = await getNextHalvingDate(blockHeader, QUARTER)
+    var next = formatDate(await getNextHalvingDate(blockHeader, QUARTER))
     if (nextHalvingCandle != next) {
       logger.log(`Next halving quarter: ${nextHalvingCandle}`)
     }
@@ -67,6 +67,6 @@ module.exports = function(bitcoin_rpc) {
     var previousBlockHash = await bitcoin_rpc.getBlockHash(previousBlockHeight)
     var previousBlockHeader = await bitcoin_rpc.getBlockHeader(previousBlockHash)
     var timeDelta = blockHeader.mediantime - previousBlockHeader.mediantime;
-    return formatDate(new Date((blockHeader.mediantime + timeDelta) * 1000))
+    return new Date((blockHeader.mediantime + timeDelta) * 1000)
   }
 }
