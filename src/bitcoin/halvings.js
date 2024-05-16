@@ -1,5 +1,5 @@
 const logger = require('../logger')
-const { formatDate, formatDateTime } = require('../formatDate')
+const { formatDate } = require('../formatDate')
 
 module.exports = function(bitcoin_rpc) {
 
@@ -27,7 +27,7 @@ module.exports = function(bitcoin_rpc) {
       halving_candles.push(date)
     }
 
-    nextHalving = formatDateTime(await getNextHalvingDate(bestBlockHeader, HALVING))
+    nextHalving = formatDate(await getNextHalvingDate(bestBlockHeader, HALVING))
     nextHalvingCandle = formatDate(await getNextHalvingDate(bestBlockHeader, QUARTER))
 
     logger.log(`Halvings: ${halvings}`)
@@ -42,7 +42,7 @@ module.exports = function(bitcoin_rpc) {
       }
     }
 
-    var next = formatDateTime(await getNextHalvingDate(blockHeader, HALVING))
+    var next = formatDate(await getNextHalvingDate(blockHeader, HALVING))
     if (nextHalving != next) {
       logger.log(`Next halving: ${nextHalving}`)
     }
